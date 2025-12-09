@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 import pennylane as qml
+import time
 
 # -------------------------------------------------------------
 # 0) Cargar imagen, convertir a escala de grises y reducir a 8x8
@@ -65,20 +66,28 @@ if __name__ == "__main__":
     path = "paisaje.jpg"   
 
     arr_original = preprocesar_image(path)
-    arr_inverso_tradicional = inversion_tradiconal(arr_original)
 
+    t_clasico_inicio = time.time()
+    arr_inverso_tradicional = inversion_tradiconal(arr_original)
+    t_clasico_fin = time.time()
+    tiempo_clasico = t_clasico_fin - t_clasico_inicio
+
+    t_cuantico_inicio = time.time()
     flat, num_qubits, normalizacion = codificar_a_qubits(arr_original)
     estado_final = circuito_negativo(flat, num_qubits)
     arr_inverso_cuantico = reconstruir_imagen(estado_final, normalizacion)
+    t_cuantico_fin = time.time()
+    tiempo_cuantico = t_cuantico_fin - t_cuantico_inicio
+
 
     fig, ax = plt.subplots(1, 3)
     ax[0].set_title("Original (8x8)")
     ax[0].imshow(arr_original, cmap="gray")
 
-    ax[1].set_title("Inversion tradicional")
+    ax[1].set_title(f"Inversión tradicional: {tiempo_clasico:.4f} s")
     ax[1].imshow(arr_inverso_tradicional, cmap="gray")
 
-    ax[2].set_title("Inversion cuantica")
+    ax[2].set_title(f"Inversión cuántica(pennylane): {tiempo_cuantico:.4f} s")
     ax[2].imshow(arr_inverso_cuantico, cmap="gray")
 
     plt.show()

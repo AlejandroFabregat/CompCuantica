@@ -4,6 +4,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import time
 
 # -------------------------------------------------------------
 # IMPORTACIONES PARA METODO CUANTICO
@@ -58,7 +59,7 @@ def codificar_a_qubits(img_arr):
 # -----------------------METODO CUANTICO-----------------------
 # 2) Aplicar filtro cuántico negativo (Puerta X a todos los qubits)
 # -------------------------------------------------------------
-def applicar_quantum_negativo(cq, num_qubits):
+def aplicar_quantum_negativo(cq, num_qubits):
     for q in range(num_qubits):
         cq.x(q)   # Puerta NOT cuántica
 
@@ -72,11 +73,10 @@ def reconstruir_imagen(cq, normalizacion):
             "o instala qiskit con extras: pip install 'qiskit[visualization]'."
         )
 
-    sim = AerSimulator(method='statevector')
-    # Hacemos una copia y eliminamos medidas finales si existen (las medidas impiden obtener statevector)
-    correr_cq = cq.copy()
+    sim = AerSimulator(method='statevector')    #Crea un simulador para que devuelva vectores de estado completos
+    correr_cq = cq.copy()                       # Hacemos una copia y eliminamos medidas finales si existen 
+                                                #(las medidas impiden obtener statevector)
     try:
-        # Método conveniente si está disponible
         correr_cq.remove_final_measurements()
     except Exception:
         # Fallback: construir nuevo circuito sin instrucciones de medida
@@ -90,13 +90,12 @@ def reconstruir_imagen(cq, normalizacion):
                 cq_nuevo.append(instr, qargs, cargs)
             correr_cq = cq_nuevo
         except Exception:
-            # Si falla, dejamos qc_run como estaba y seguiremos intentando
+            # Si falla, dejamos cq_nuevo como estaba y seguiremos intentando
             pass
 
-    stado_vector = None
-    # Intentar guardar explícitamente el statevector (más robusto entre versiones de Aer)
+    statevector = None
+    # Intentar guardar explícitamente el estado del vector (más robusto entre versiones de Aer)
     try:
-        # save_statevector puede no existir en versiones antiguas, así que lo intentamos en try
         cq_sv = correr_cq.copy()
         try:
             cq_sv.save_statevector()
@@ -110,25 +109,25 @@ def reconstruir_imagen(cq, normalizacion):
         result = job.result()
         # Intentar obtener por índice de experimento (0)
         try:
-            estado_vector = result.get_statevector(0)
+            statevector = result.get_statevector(0)
         except Exception:
             try:
-                estado_vector = result.get_statevector()
+                statevector = result.get_statevector()
             except Exception:
                 # Fallback a result.data()
                 try:
                     data = result.data()
-                    estado_vector = data.get('statevector', None)
+                    statevector = data.get('statevector', None)
                 except Exception:
-                    estado_vector = None
+                    statevector = None
     except Exception:
-        estado_vector = None
+        statevector = None
 
-    if estado_vector is None:
+    if statevector is None:
         raise RuntimeError("No se pudo obtener el statevector del resultado del simulador. Asegúrate de que el circuito no tenga medidas y que 'qiskit-aer' esté instalado y actualizado.")
 
     # Obtener amplitudes en valores de intensidad 0..1
-    amplitudes = np.abs(estado_vector) * normalizacion
+    amplitudes = np.abs(statevector) * normalizacion
     image = amplitudes.reshape((8, 8))
     return image
 
@@ -142,20 +141,26 @@ if __name__ == "__main__":
     arr_original = preprocesar_image(path)
     cq, num_qubits, normalizacion = codificar_a_qubits(arr_original)
 
+    t_clasico_inicio = time.time()
     arr_inverso_tradicional = inversion_tradiconal(arr_original)
+    t_clasico_fin = time.time()
+    tiempo_clasico = t_clasico_fin - t_clasico_inicio
 
-    applicar_quantum_negativo(cq, num_qubits)
+    t_cuantico_inicio = time.time()
+    aplicar_quantum_negativo(cq, num_qubits)
     arr_inverso_cuantico = reconstruir_imagen(cq, normalizacion)
+    t_cuantico_fin = time.time()
+    tiempo_cuantico = t_cuantico_fin - t_cuantico_inicio
 
     # Mostrar ambas imágenes
     fig, ax = plt.subplots(1, 3)
     ax[0].set_title("Original (8x8)")
     ax[0].imshow(arr_original, cmap="gray")
 
-    ax[1].set_title("Inversion tradicional")
+    ax[1].set_title(f"Inversión tradicional: {tiempo_clasico:.4f} s")
     ax[1].imshow(arr_inverso_tradicional, cmap="gray")
 
-    ax[2].set_title("Inversion cuantica")
+    ax[2].set_title(f"Inversión cuántica: {tiempo_cuantico:.4f} s")
     ax[2].imshow(arr_inverso_cuantico, cmap="gray")
 
     plt.show()
