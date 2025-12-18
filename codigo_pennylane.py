@@ -66,3 +66,29 @@ def reconstruir_imagen(statevector, normalizacion):
     amplitudes = np.abs(statevector) * normalizacion
     image = amplitudes.reshape((8, 8))  # ajusta tamaño si es otra resolución
     return image
+
+if __name__ == "__main__":
+    ruta_imagen = "paisaje.jpg"  # Reemplaza con tu imagen 8x8
+    img_arr = preprocesar_image(ruta_imagen)
+    plt.figure(figsize=(8, 4))
+    plt.subplot(1, 3, 1)
+    plt.imshow(img_arr, cmap="gray")
+    plt.title("Original")
+    plt.axis("off")
+
+    img_clasica = inversion_tradiconal(img_arr)
+    plt.subplot(1, 3, 2)
+    plt.imshow(img_clasica, cmap="gray")
+    plt.title("Inversión clásica")
+    plt.axis("off")
+
+    cq, num_qubits, normalizacion = codificar_a_qubits(img_arr)
+    cq_neg, num_qubits, normalizacion = aplicar_quantum_negativo(cq, num_qubits)
+    img_cuantica = reconstruir_imagen(cq_neg, normalizacion)
+    plt.subplot(1, 3, 3)
+    plt.imshow(img_cuantica, cmap="gray")
+    plt.title("Negativo cuántico")
+    plt.axis("off")
+
+    plt.tight_layout()
+    plt.show()
