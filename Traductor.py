@@ -9,7 +9,7 @@ import os
 # =============================================================================
 # CONFIGURACIÓN - Cambia estas rutas según tus archivos
 # =============================================================================
-RUTA_ARCHIVO_QISKIT = "../PRACTICA_1/Practica1.py"  # Archivo de entrada
+RUTA_ARCHIVO_QISKIT = "Practica1.py"  # Archivo de entrada
 RUTA_ARCHIVO_PENNYLANE = "codigo_pennylane.py"  # Archivo de salida
 
 # =============================================================================
@@ -81,16 +81,27 @@ def extraer_informacion_circuito(codigo):
     return info
 
 def traducir_funcion_qiskit(codigo_funcion, info):
-    """Traduce una función de Qiskit a PennyLane (sin for vacíos)"""
+    """Traduce una función de Qiskit a PennyLane"""
+
     lineas = codigo_funcion.split('\n')
 
     # Extraer nombre de función
-    match = re.match(r'def\s+(\w+)\((.*?)\):', lineas[0])
-    if not match:
+    nombre_match = re.match(r'def\s+(\w+)\((.*?)\):', lineas[0])
+    if not nombre_match:
         return codigo_funcion
+    nombre_func = nombre_match.group(1)
+    params = nombre_match.group(2)
 
-    nombre_func = match.group(1)
-    params = match.group(2)
+    # --- Reemplazo automático de reconstruir_imagen ---
+    if nombre_func == "reconstruir_imagen":
+        nuevo_codigo = [
+            "def reconstruir_imagen(statevector, normalizacion):",
+            "    '''Reconstruye la imagen desde el statevector en PennyLane'''",
+            "    amplitudes = np.abs(statevector) * normalizacion",
+            "    image = amplitudes.reshape((8, 8))  # ajusta tamaño si es otra resolución",
+            "    return image",
+        ]
+        return '\n'.join(nuevo_codigo)
 
     # Detectar operaciones cuánticas
     if not any(re.search(r'\.(x|y|z|h|cx|rx|ry|rz|initialize)\(', l) for l in lineas):
@@ -100,27 +111,20 @@ def traducir_funcion_qiskit(codigo_funcion, info):
     nuevo_codigo = [f"def {nombre_func}({params}):"]
 
     # -------------------------------------------------
-    # 1️⃣ Copiar código clásico
+    # 1️⃣ Copiar código clásico (sin Qiskit)
     # -------------------------------------------------
     for linea in lineas[1:]:
         stripped = linea.strip()
-
         if not stripped or stripped.startswith('#'):
             continue
-
-        # ❌ No copiar bucles for del Qiskit
         if stripped.startswith('for ') and 'range' in stripped:
             continue
-
-        # ❌ No copiar returns tipo: return cq, ...
         if stripped.startswith("return") and info['circuit_var'] in stripped:
             continue
-
         if re.search(r'\.(x|y|z|h|cx|cy|cz|swap|rx|ry|rz|initialize)\(', stripped):
             continue
         if any(x in stripped for x in ['QuantumCircuit', 'AerSimulator', 'save_statevector']):
             continue
-
         nuevo_codigo.append(linea)
 
     num_qubits = info['num_qubits_literal'] or info['num_qubits_var'] or 'n_qubits'
@@ -134,7 +138,6 @@ def traducir_funcion_qiskit(codigo_funcion, info):
     nuevo_codigo.append(f"{indent}def circuit():")
 
     circuit_indent = indent + "    "
-
     i = 1
     while i < len(lineas):
         stripped = lineas[i].strip()
@@ -178,7 +181,7 @@ def traducir_funcion_qiskit(codigo_funcion, info):
         i += 1
 
     # -------------------------------------------------
-    # 3️⃣ Return
+    # 3️⃣ Return statevector + número de qubits
     # -------------------------------------------------
     nuevo_codigo.append(f"{circuit_indent}return qml.state()")
     nuevo_codigo.append("")
@@ -187,6 +190,7 @@ def traducir_funcion_qiskit(codigo_funcion, info):
     nuevo_codigo.append(f"{indent}return statevector, num_qubits, normalizacion")
 
     return '\n'.join(nuevo_codigo)
+
 
 def traducir_operacion(linea, info, indent):
     """Traduce una operación individual de Qiskit a PennyLane"""
@@ -236,8 +240,6 @@ def traducir_codigo_completo(codigo_qiskit):
     codigo_traducido.append("import matplotlib.pyplot as plt")
     codigo_traducido.append("from PIL import Image")
     codigo_traducido.append("import time\n")
-    codigo_traducido.append("AerSimulator = None  # Placeholder para compatibilidad Qiskit\n")
-
     
     # Traducir cada sección
     for seccion in funciones:
