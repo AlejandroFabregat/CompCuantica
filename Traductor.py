@@ -209,7 +209,8 @@ def generar_main():
         "    plt.axis('off')",
         "",
         "    plt.tight_layout()",
-        "    plt.show()"
+        "    plt.savefig('resultado.png')",
+        "    print('Imagen guardada en resultado.png')"
     ]
     return '\n'.join(main_code)
 

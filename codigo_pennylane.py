@@ -102,7 +102,5 @@ if __name__ == '__main__':
     plt.axis('off')
 
     plt.tight_layout()
-    plt.show()
-
-    print("Imagen original:\n", img_arr)
-    print("Imagen negativa cuántica:\n", img_cuantica)  
+    plt.savefig('resultado.png')
+    print('Imagen guardada en resultado.png')
